@@ -296,8 +296,19 @@ function periodsBetween(a,b){ // รายการ Period ที่ช่วง
   return out;
 }
 
+/** แปลงวันที่ทุกรูปแบบให้เป็น yyyy-mm-dd (รองรับปี พ.ศ., dd/mm/yyyy, วันที่แบบมีเวลา) */
+function normDate(v){
+  if(!v) return "";
+  const s=String(v).trim(); let y,m,d,x;
+  if((x=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))){ y=+x[1]; m=+x[2]; d=+x[3]; }
+  else if((x=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))){ d=+x[1]; m=+x[2]; y=+x[3]; }
+  else { const t=new Date(s); if(isNaN(t)) return ""; y=t.getFullYear(); m=t.getMonth()+1; d=t.getDate(); }
+  if(y>2400) y-=543;                     // ปี พ.ศ. → ค.ศ.
+  if(!(m>=1&&m<=12&&d>=1&&d<=31)) return "";
+  return `${y}-${pad(m)}-${pad(d)}`;
+}
 /** วันสิ้นสุดที่ใช้คำนวณ: ถ้ายัง "ปัจจุบัน" ใช้วันนี้ (หรือวันเข้า ถ้ายังไม่ถึง) */
-function effEnd(r){ if(r.endDate) return r.endDate; const t=todayISO(); return r.startDate>t? r.startDate : t; }
+function effEnd(r){ if(r.endDate) return r.endDate; if(!r.startDate) return ""; const t=todayISO(); return r.startDate>t? r.startDate : t; }
 
 function toast(msg, err=false){
   const t=$("toast"); t.textContent=msg; t.className="toast show"+(err?" err":"");
@@ -337,7 +348,7 @@ async function saveRow(row){
 async function loadData(){
   $("tbody").innerHTML = `<tr><td colspan="9" class="empty">กำลังโหลด...</td></tr>`;
   try{
-    ROWS = await fetchRows();
+    ROWS = (await fetchRows()).map(r=>({...r, startDate:normDate(r.startDate), endDate:normDate(r.endDate)}));
     fillCompanyList(); buildYearOptions(); renderSummary();
   }catch(e){
     $("tbody").innerHTML = `<tr><td colspan="9" class="empty">โหลดข้อมูลไม่สำเร็จ: ${esc(e.message)}</td></tr>`;
@@ -434,7 +445,7 @@ function filteredRows(){
   const {start,end}=currentFilterRange();
   const q=$("fSearch").value.trim().toLowerCase();
   return ROWS
-    .filter(r=> r.startDate && r.startDate <= end && effEnd(r) >= start)
+    .filter(r=> !r.startDate || (r.startDate <= end && effEnd(r) >= start))
     .filter(r=> !q || [r.company,r.contactName,r.phone,r.email].join(" ").toLowerCase().includes(q))
     .sort((a,b)=> a.startDate.localeCompare(b.startDate) || String(a.company).localeCompare(String(b.company),"th"));
 }
@@ -451,7 +462,7 @@ function renderSummary(){
     $("tbody").innerHTML=`<tr><td colspan="9" class="empty">ไม่มีข้อมูลในช่วงนี้${hint}</td></tr>`; return;
   }
   $("tbody").innerHTML = rows.map((r,i)=>{
-    const st = r.startDate>today ? `<span class="pill soon">ยังไม่เข้า</span>` : (r.endDate && r.endDate<today) ? `<span class="pill done">ออกแล้ว</span>` : `<span class="pill">อยู่ในพื้นที่</span>`;
+    const st = !r.startDate ? `<span class="pill soon">ตรวจวันที่</span>` : r.startDate>today ? `<span class="pill soon">ยังไม่เข้า</span>` : (r.endDate && r.endDate<today) ? `<span class="pill done">ออกแล้ว</span>` : `<span class="pill">อยู่ในพื้นที่</span>`;
     const endCell = r.endDate ? fmtDate(r.endDate) : `<span class="pill now">ปัจจุบัน</span><br><button class="btn-sm" data-end="${esc(r.id)}">บันทึกวันออก</button>`;
     return `<tr><td>${i+1}</td><td><b>${esc(r.company)}</b></td><td>${esc(r.contactName)}</td>
       <td><a href="tel:${esc(r.phone)}">${esc(r.phone)}</a></td><td>${r.email?`<a href="mailto:${esc(r.email)}">${esc(r.email)}</a>`:"-"}</td>
