@@ -16,6 +16,17 @@
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyatqfxf9U5GyUeTpaUbdZlN8eaGglBa-DYp1dcogSHWCTO9wtfR_NvlRPpFJvrH3i3BQ/exec";
   const DEPT_NAME  = "แผนก Maintenance and Reliability";
   const APP_TITLE  = "ทะเบียนผู้รับเหมา";
+  // รายชื่อเจ้าของงาน M&R (เพิ่ม/ลบได้ ทีละบรรทัด)
+  const OWNERS = [
+    "Mr. Anon Wisripat (Bird)",
+    "Mr. Veerayos Lohmahadej (Vee)",
+    "Mr. Paramat Ponrub (Por)",
+    "Mr. Natthaporn Sritula (Nat)",
+    "Mr. Suriyan Lakkanapachuenkul (Mos)",
+    "Mr. Nitikron Sinsing (Mark)",
+    "Mr. Surachet Yaemmee (Ton)",
+    "Mr. Sakhon Sin-im (Fair)"
+  ];
 </script>
 <style>
 :root{
@@ -83,7 +94,7 @@ textarea{min-height:70px;resize:vertical}
 .btn:disabled{opacity:.6;cursor:wait}
 
 /* Summary */
-.filters{display:grid;grid-template-columns:140px 200px 1fr auto auto;gap:10px;align-items:end;margin-bottom:16px}
+.filters{display:grid;grid-template-columns:120px 190px 220px 1fr auto auto;gap:10px;align-items:end;margin-bottom:16px}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
 .stat{background:var(--card);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);border-left:4px solid var(--navy)}
 .stat:nth-child(2){border-color:var(--accent)}.stat:nth-child(3){border-color:var(--green)}
@@ -101,6 +112,10 @@ tr:last-child td{border-bottom:0}
 .empty{text-align:center;padding:30px;color:var(--muted)}
 .check{display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:400;cursor:pointer}
 .check input{width:18px;height:18px;accent-color:var(--navy)}
+.owners{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px 12px}
+.owners .check{margin-top:0;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px}
+.owners .check:has(input:checked){border-color:var(--navy-2);background:#eef4fb}
+.owner-tag{display:inline-block;background:#eef4fb;color:var(--navy);border-radius:6px;padding:1px 8px;margin:1px 0;font-size:.82rem;white-space:nowrap;font-weight:500}
 input:disabled{background:#f1f3f6;color:#9aa3b2}
 .pill.now{background:#e8eef7;color:var(--navy)}
 .btn-sm{border:1.5px solid var(--line);background:#fff;border-radius:8px;padding:3px 10px;font-size:.8rem;cursor:pointer;margin-top:4px;white-space:nowrap}
@@ -182,7 +197,10 @@ footer{text-align:center;color:var(--muted);font-size:.82rem;padding:20px}
           <datalist id="companyList"></datalist>
         </div>
 
-        <div class="section-title">ผู้ประสานงาน</div>
+        <div class="section-title">เจ้าของงาน M&amp;R <span class="req" style="color:var(--red)">*</span> <span class="muted" style="font-weight:400;font-size:.85rem">เลือกได้มากกว่า 1 คน</span></div>
+        <div class="full owners" id="ownerBox"></div>
+
+        <div class="section-title">ผู้ประสานงาน (ฝั่งผู้รับเหมา)</div>
         <div class="full">
           <label for="contactName">ชื่อ-นามสกุล <span class="req">*</span></label>
           <input id="contactName" name="contactName" required maxlength="120" placeholder="เช่น สมชาย ใจดี">
@@ -227,6 +245,7 @@ footer{text-align:center;color:var(--muted);font-size:.82rem;padding:20px}
       <div class="filters">
         <div><label for="fYear">ปี</label><select id="fYear"></select></div>
         <div><label for="fPeriod">Period</label><select id="fPeriod"></select></div>
+        <div><label for="fOwner">เจ้าของงาน</label><select id="fOwner"><option value="">ทั้งหมด</option></select></div>
         <div class="search"><label for="fSearch">ค้นหา</label><input id="fSearch" placeholder="ชื่อบริษัท / ผู้ประสานงาน / เบอร์โทร"></div>
         <button class="btn btn-ghost" id="refreshBtn" type="button">🔄 รีเฟรช</button>
         <button class="btn btn-accent" id="exportBtn" type="button">⬇️ Excel</button>
@@ -240,10 +259,10 @@ footer{text-align:center;color:var(--muted);font-size:.82rem;padding:20px}
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>#</th><th>บริษัทผู้รับเหมา</th><th>ผู้ประสานงาน</th><th>เบอร์โทร</th><th>อีเมล</th>
+            <th>#</th><th>บริษัทผู้รับเหมา</th><th>เจ้าของงาน</th><th>ผู้ประสานงาน</th><th>เบอร์โทร</th><th>อีเมล</th>
             <th>วันที่เข้า</th><th>วันที่ออก</th><th>สถานะ</th><th>หมายเหตุ</th>
           </tr></thead>
-          <tbody id="tbody"><tr><td colspan="9" class="empty">กำลังโหลด...</td></tr></tbody>
+          <tbody id="tbody"><tr><td colspan="10" class="empty">กำลังโหลด...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -346,15 +365,26 @@ async function saveRow(row){
 }
 
 async function loadData(){
-  $("tbody").innerHTML = `<tr><td colspan="9" class="empty">กำลังโหลด...</td></tr>`;
+  $("tbody").innerHTML = `<tr><td colspan="10" class="empty">กำลังโหลด...</td></tr>`;
   try{
     ROWS = (await fetchRows()).map(r=>({...r, startDate:normDate(r.startDate), endDate:normDate(r.endDate)}));
-    fillCompanyList(); buildYearOptions(); renderSummary();
+    fillCompanyList(); fillOwnerLists(); buildYearOptions(); renderSummary();
   }catch(e){
-    $("tbody").innerHTML = `<tr><td colspan="9" class="empty">โหลดข้อมูลไม่สำเร็จ: ${esc(e.message)}</td></tr>`;
+    $("tbody").innerHTML = `<tr><td colspan="10" class="empty">โหลดข้อมูลไม่สำเร็จ: ${esc(e.message)}</td></tr>`;
   }
 }
 
+const splitOwners = s => String(s||"").split(",").map(x=>x.trim()).filter(Boolean);
+function ownerTags(s){
+  const list=splitOwners(s); if(!list.length) return "-";
+  return list.map(n=>{ const m=n.match(/\(([^)]+)\)\s*$/); return `<span class="owner-tag" title="${esc(n)}">${esc(m?m[1]:n)}</span>`; }).join(" ");
+}
+function fillOwnerLists(){
+  const opt=n=>`<option value="${esc(n)}">${esc(n)}</option>`;
+  const box=$("ownerBox"); if(!box.children.length) box.innerHTML=OWNERS.map(n=>`<label class="check"><input type="checkbox" name="owner" value="${esc(n)}"> ${esc(n)}</label>`).join("");
+  const all=[...new Set([...OWNERS, ...ROWS.flatMap(r=>splitOwners(r.owner))])];
+  const s=$("fOwner"), keep=s.value; s.innerHTML=`<option value="">ทั้งหมด</option>`+all.map(opt).join(""); s.value=keep;
+}
 function fillCompanyList(){
   const names=[...new Set(ROWS.map(r=>String(r.company).trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"th"));
   $("companyList").innerHTML = names.map(n=>`<option value="${esc(n)}">`).join("");
@@ -398,11 +428,12 @@ $("entryForm").addEventListener("submit", async ev=>{
   ev.preventDefault();
   const f=ev.target;
   const row = {
-    company: $("company").value.trim(), contactName: $("contactName").value.trim(),
+    company: $("company").value.trim(), owner: [...document.querySelectorAll('#ownerBox input:checked')].map(i=>i.value).join(", "), contactName: $("contactName").value.trim(),
     phone: $("phone").value.trim(), email: $("email").value.trim(),
     startDate: $("startDate").value, endDate: $("ongoing").checked ? "" : $("endDate").value,
     ongoing: $("ongoing").checked, note: $("note").value.trim()
   };
+  if(!row.owner){ toast("กรุณาเลือกเจ้าของงาน (M&R) อย่างน้อย 1 คน", true); return; }
   if(!row.company || !row.contactName || !row.phone || !row.startDate || (!row.ongoing && !row.endDate)){ toast("กรุณากรอกช่องที่มี * ให้ครบ (หรือติ๊ก \"ยังปฏิบัติงานอยู่\")", true); return; }
   if(row.email && !$("email").checkValidity()){ toast("รูปแบบอีเมลไม่ถูกต้อง", true); return; }
   if(row.endDate && row.endDate < row.startDate){ toast("วันที่ออกต้องไม่ก่อนวันที่เข้า", true); return; }
@@ -443,10 +474,11 @@ function currentFilterRange(){
 
 function filteredRows(){
   const {start,end}=currentFilterRange();
-  const q=$("fSearch").value.trim().toLowerCase();
+  const q=$("fSearch").value.trim().toLowerCase(), ow=$("fOwner").value;
   return ROWS
     .filter(r=> !r.startDate || (r.startDate <= end && effEnd(r) >= start))
-    .filter(r=> !q || [r.company,r.contactName,r.phone,r.email].join(" ").toLowerCase().includes(q))
+    .filter(r=> !ow || splitOwners(r.owner).includes(ow))
+    .filter(r=> !q || [r.company,r.owner,r.contactName,r.phone,r.email].join(" ").toLowerCase().includes(q))
     .sort((a,b)=> a.startDate.localeCompare(b.startDate) || String(a.company).localeCompare(String(b.company),"th"));
 }
 
@@ -459,12 +491,12 @@ function renderSummary(){
   $("sActive").textContent = rows.filter(r=>r.startDate<=today && effEnd(r)>=today).length;
   if(!rows.length){
     const hint = ROWS.length ? `<br><small>มีข้อมูลทั้งหมด ${ROWS.length} รายการ แต่ไม่อยู่ในช่วงนี้ — ลองเลือก Period อื่น หรือ "ทั้งปี"</small>` : `<br><small>ยังไม่มีข้อมูลในระบบ</small>`;
-    $("tbody").innerHTML=`<tr><td colspan="9" class="empty">ไม่มีข้อมูลในช่วงนี้${hint}</td></tr>`; return;
+    $("tbody").innerHTML=`<tr><td colspan="10" class="empty">ไม่มีข้อมูลในช่วงนี้${hint}</td></tr>`; return;
   }
   $("tbody").innerHTML = rows.map((r,i)=>{
     const st = !r.startDate ? `<span class="pill soon">ตรวจวันที่</span>` : r.startDate>today ? `<span class="pill soon">ยังไม่เข้า</span>` : (r.endDate && r.endDate<today) ? `<span class="pill done">ออกแล้ว</span>` : `<span class="pill">อยู่ในพื้นที่</span>`;
     const endCell = r.endDate ? fmtDate(r.endDate) : `<span class="pill now">ปัจจุบัน</span><br><button class="btn-sm" data-end="${esc(r.id)}">บันทึกวันออก</button>`;
-    return `<tr><td>${i+1}</td><td><b>${esc(r.company)}</b></td><td>${esc(r.contactName)}</td>
+    return `<tr><td>${i+1}</td><td><b>${esc(r.company)}</b></td><td>${ownerTags(r.owner)}</td><td>${esc(r.contactName)}</td>
       <td><a href="tel:${esc(r.phone)}">${esc(r.phone)}</a></td><td>${r.email?`<a href="mailto:${esc(r.email)}">${esc(r.email)}</a>`:"-"}</td>
       <td>${fmtDate(r.startDate)}</td><td>${endCell}</td><td>${st}</td><td>${esc(r.note||"")}</td></tr>`;
   }).join("");
@@ -473,9 +505,9 @@ function renderSummary(){
 function exportCSV(){
   const rows=filteredRows(), rng=currentFilterRange();
   if(!rows.length){ toast("ไม่มีข้อมูลให้ดาวน์โหลด", true); return; }
-  const head=["ลำดับ","บริษัทผู้รับเหมา","ผู้ประสานงาน","เบอร์โทร","อีเมล","วันที่เข้า","วันที่ออก","Period","หมายเหตุ"];
+  const head=["ลำดับ","บริษัทผู้รับเหมา","เจ้าของงาน (M&R)","ผู้ประสานงาน","เบอร์โทร","อีเมล","วันที่เข้า","วันที่ออก","Period","หมายเหตุ"];
   const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
-  const lines=[head.map(q).join(",")].concat(rows.map((r,i)=>[i+1,r.company,r.contactName,"\t"+r.phone,r.email,r.startDate,r.endDate||"ปัจจุบัน",r.period,r.note].map(q).join(",")));
+  const lines=[head.map(q).join(",")].concat(rows.map((r,i)=>[i+1,r.company,r.owner||"",r.contactName,"\t"+r.phone,r.email,r.startDate,r.endDate||"ปัจจุบัน",r.period,r.note].map(q).join(",")));
   const blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
   a.download=`ผู้รับเหมา_${rng.label.replace(/\s+/g,"-")}.csv`; a.click(); URL.revokeObjectURL(a.href);
@@ -484,6 +516,7 @@ function exportCSV(){
 ["fYear"].forEach(id=>$(id).addEventListener("change",()=>{ $("fPeriod").value=""; buildPeriodOptions(); renderSummary(); }));
 $("fPeriod").addEventListener("change", renderSummary);
 $("fSearch").addEventListener("input", renderSummary);
+$("fOwner").addEventListener("change", renderSummary);
 $("refreshBtn").addEventListener("click", loadData);
 $("exportBtn").addEventListener("click", exportCSV);
 
@@ -514,7 +547,7 @@ $("footer").textContent=`© ${new Date().getFullYear()} ${DEPT_NAME}`;
 $("demoBanner").hidden=!DEMO;
 $("currentPeriod").textContent=(()=>{ const p=periodOf(todayISO()), r=periodRange(p.y,p.m); return `${periodLabel(p)} (${fmtDate(r.start)} – ${fmtDate(r.end)})`; })();
 window.addEventListener("hashchange", route);
-route(); loadData();
+fillOwnerLists(); route(); loadData();
 </script>
 </body>
 </html>
