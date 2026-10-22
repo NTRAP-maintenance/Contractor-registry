@@ -99,6 +99,15 @@ tr:last-child td{border-bottom:0}
 .pill.done{background:#eef0f4;color:var(--muted)}
 .pill.soon{background:#fff3cf;color:#8a6100}
 .empty{text-align:center;padding:30px;color:var(--muted)}
+.check{display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:400;cursor:pointer}
+.check input{width:18px;height:18px;accent-color:var(--navy)}
+input:disabled{background:#f1f3f6;color:#9aa3b2}
+.pill.now{background:#e8eef7;color:var(--navy)}
+.btn-sm{border:1.5px solid var(--line);background:#fff;border-radius:8px;padding:3px 10px;font-size:.8rem;cursor:pointer;margin-top:4px;white-space:nowrap}
+.btn-sm:hover{border-color:var(--navy-2)}
+.modal{position:fixed;inset:0;background:rgba(15,42,74,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal.show{display:flex}
+.modal .card{width:100%;max-width:380px}
 
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(120px);background:var(--navy);color:#fff;padding:12px 18px;border-radius:12px;box-shadow:var(--shadow);transition:.25s;z-index:9;max-width:calc(100% - 32px)}
 .toast.show{transform:translateX(-50%) translateY(0)}
@@ -195,6 +204,7 @@ footer{text-align:center;color:var(--muted);font-size:.82rem;padding:20px}
         <div>
           <label for="endDate">วันที่ออก <span class="req">*</span></label>
           <input id="endDate" name="endDate" type="date" required min="2025-12-16" max="2027-12-31">
+          <label class="check"><input type="checkbox" id="ongoing"> ยังปฏิบัติงานอยู่ (ปัจจุบัน) — ยังไม่ทราบวันออก</label>
         </div>
         <div class="period-box" id="periodBox">เลือกวันที่เข้า-ออก แล้วระบบจะคำนวณ Period ให้อัตโนมัติ</div>
 
@@ -240,6 +250,19 @@ footer{text-align:center;color:var(--muted);font-size:.82rem;padding:20px}
   </section>
 </main>
 
+<div class="modal" id="endModal">
+  <div class="card">
+    <h2 style="margin-bottom:6px">บันทึกวันออก</h2>
+    <p class="muted" id="endModalText" style="margin:0 0 12px"></p>
+    <label for="endModalDate">วันที่ออก</label>
+    <input type="date" id="endModalDate">
+    <div class="btns">
+      <button class="btn btn-primary" id="endModalSave" type="button">💾 บันทึก</button>
+      <button class="btn btn-ghost" id="endModalCancel" type="button">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
 <footer id="footer"></footer>
 <div class="toast" id="toast"></div>
 
@@ -273,6 +296,9 @@ function periodsBetween(a,b){ // รายการ Period ที่ช่วง
   return out;
 }
 
+/** วันสิ้นสุดที่ใช้คำนวณ: ถ้ายัง "ปัจจุบัน" ใช้วันนี้ (หรือวันเข้า ถ้ายังไม่ถึง) */
+function effEnd(r){ if(r.endDate) return r.endDate; const t=todayISO(); return r.startDate>t? r.startDate : t; }
+
 function toast(msg, err=false){
   const t=$("toast"); t.textContent=msg; t.className="toast show"+(err?" err":"");
   clearTimeout(t._h); t._h=setTimeout(()=>t.className="toast"+(err?" err":""),3200);
@@ -295,6 +321,9 @@ async function fetchRows(){
   return data.rows;
 }
 async function saveRow(row){
+  if(DEMO && row.action==="setEnd"){
+    const rows=demoLoad(), r=rows.find(x=>x.id===row.id); if(r){ r.endDate=row.endDate; r.period=row.period; } demoSave(rows); return {ok:true};
+  }
   if(DEMO){
     const rows=demoLoad(); row.id=Math.random().toString(36).slice(2,10); row.createdAt=new Date().toISOString();
     rows.push(row); demoSave(rows); return {ok:true};
@@ -331,38 +360,50 @@ function route(){
 }
 
 /* ---------------- Form ---------------- */
+function periodText(s, e){ // ข้อความ Period ของช่วงวันที่ (e ว่าง = ปัจจุบัน)
+  if(!e) return `ตั้งแต่ ${periodLabel(periodOf(s))} – ปัจจุบัน`;
+  const ps = periodsBetween(s, e);
+  return ps.length===1 ? periodLabel(ps[0]) : `${periodLabel(ps[0])} – ${periodLabel(ps[ps.length-1]).replace("Period ","")} (${ps.length} Period)`;
+}
 function updatePeriodBox(){
-  const s=$("startDate").value, e=$("endDate").value, box=$("periodBox");
+  const s=$("startDate").value, on=$("ongoing").checked, e=on?"":$("endDate").value, box=$("periodBox");
   if(!s){ box.innerHTML="เลือกวันที่เข้า-ออก แล้วระบบจะคำนวณ Period ให้อัตโนมัติ"; return; }
   if(e && e<s){ box.innerHTML="⚠️ วันที่ออกต้องไม่ก่อนวันที่เข้า"; return; }
-  const ps = periodsBetween(s, e||s);
-  const txt = ps.length===1 ? periodLabel(ps[0]) : `${periodLabel(ps[0])} – ${periodLabel(ps[ps.length-1]).replace("Period ","")} (${ps.length} Period)`;
-  box.innerHTML = `📅 Period ที่บันทึก: <b>${esc(txt)}</b>`;
+  if(!on && !e){ box.innerHTML=`📅 เริ่ม <b>${esc(periodLabel(periodOf(s)))}</b> — เลือกวันที่ออก หรือติ๊ก "ยังปฏิบัติงานอยู่"`; return; }
+  box.innerHTML = `📅 Period ที่บันทึก: <b>${esc(periodText(s,e))}</b>`;
+}
+function toggleOngoing(){
+  const on=$("ongoing").checked, end=$("endDate");
+  end.disabled=on; end.required=!on; if(on) end.value="";
+  updatePeriodBox();
 }
 
 $("startDate").addEventListener("change", ()=>{ if($("startDate").value) $("endDate").min=$("startDate").value; updatePeriodBox(); });
 $("endDate").addEventListener("change", updatePeriodBox);
-$("entryForm").addEventListener("reset", ()=>setTimeout(updatePeriodBox,0));
+$("ongoing").addEventListener("change", toggleOngoing);
+$("entryForm").addEventListener("reset", ()=>setTimeout(toggleOngoing,0));
 
 $("entryForm").addEventListener("submit", async ev=>{
   ev.preventDefault();
   const f=ev.target;
   const row = {
-    company: f.company.value.trim(), contactName: f.contactName.value.trim(),
-    phone: f.phone.value.trim(), email: f.email.value.trim(),
-    startDate: f.startDate.value, endDate: f.endDate.value, note: f.note.value.trim()
+    company: $("company").value.trim(), contactName: $("contactName").value.trim(),
+    phone: $("phone").value.trim(), email: $("email").value.trim(),
+    startDate: $("startDate").value, endDate: $("ongoing").checked ? "" : $("endDate").value,
+    ongoing: $("ongoing").checked, note: $("note").value.trim()
   };
-  if(!row.company || !row.contactName || !row.phone || !row.startDate || !row.endDate){ toast("กรุณากรอกช่องที่มี * ให้ครบ", true); return; }
-  if(row.email && !f.email.checkValidity()){ toast("รูปแบบอีเมลไม่ถูกต้อง", true); return; }
-  if(row.endDate < row.startDate){ toast("วันที่ออกต้องไม่ก่อนวันที่เข้า", true); return; }
-  const ps = periodsBetween(row.startDate, row.endDate);
-  row.period = ps.map(periodLabel).join(", ");
+  if(!row.company || !row.contactName || !row.phone || !row.startDate || (!row.ongoing && !row.endDate)){ toast("กรุณากรอกช่องที่มี * ให้ครบ (หรือติ๊ก \"ยังปฏิบัติงานอยู่\")", true); return; }
+  if(row.email && !$("email").checkValidity()){ toast("รูปแบบอีเมลไม่ถูกต้อง", true); return; }
+  if(row.endDate && row.endDate < row.startDate){ toast("วันที่ออกต้องไม่ก่อนวันที่เข้า", true); return; }
+  row.period = periodText(row.startDate, row.endDate);
 
   const btn=$("submitBtn"); btn.disabled=true; btn.textContent="กำลังบันทึก...";
   try{
     await saveRow(row);
-    toast("✅ บันทึกข้อมูลเรียบร้อย");
+    toast(`✅ บันทึกเรียบร้อย — ${periodLabel(periodOf(row.startDate))}`);
+    const p=periodOf(row.startDate); // ให้หน้าสรุปเปิดไปที่ Period ของรายการที่เพิ่งบันทึก
     f.reset(); await loadData();
+    $("fYear").value=p.y; buildPeriodOptions(); $("fPeriod").value=p.m; renderSummary();
   }catch(e){ toast("❌ "+e.message, true); }
   finally{ btn.disabled=false; btn.textContent="💾 บันทึกข้อมูล"; }
 });
@@ -371,7 +412,7 @@ $("entryForm").addEventListener("submit", async ev=>{
 function buildYearOptions(){
   const cur = periodOf(todayISO());
   const years = new Set([2026,2027]);
-  ROWS.forEach(r=>{ if(r.startDate) periodsBetween(r.startDate, r.endDate||r.startDate).forEach(p=>years.add(p.y)); });
+  ROWS.forEach(r=>{ if(r.startDate) periodsBetween(r.startDate, effEnd(r)).forEach(p=>years.add(p.y)); });
   const sel=$("fYear"), keep=sel.value;
   sel.innerHTML=[...years].sort().map(y=>`<option value="${y}">${y}</option>`).join("");
   sel.value = keep || (years.has(cur.y)? cur.y : 2026);
@@ -393,7 +434,7 @@ function filteredRows(){
   const {start,end}=currentFilterRange();
   const q=$("fSearch").value.trim().toLowerCase();
   return ROWS
-    .filter(r=> r.startDate <= end && (r.endDate||r.startDate) >= start)
+    .filter(r=> r.startDate && r.startDate <= end && effEnd(r) >= start)
     .filter(r=> !q || [r.company,r.contactName,r.phone,r.email].join(" ").toLowerCase().includes(q))
     .sort((a,b)=> a.startDate.localeCompare(b.startDate) || String(a.company).localeCompare(String(b.company),"th"));
 }
@@ -404,13 +445,17 @@ function renderSummary(){
   $("rangeText").textContent = `${rng.label} : ${fmtDate(rng.start)} – ${fmtDate(rng.end)}`;
   $("sCompanies").textContent = new Set(rows.map(r=>String(r.company).trim())).size;
   $("sRows").textContent = rows.length;
-  $("sActive").textContent = rows.filter(r=>r.startDate<=today && r.endDate>=today).length;
-  if(!rows.length){ $("tbody").innerHTML=`<tr><td colspan="9" class="empty">ไม่มีข้อมูลในช่วงนี้</td></tr>`; return; }
+  $("sActive").textContent = rows.filter(r=>r.startDate<=today && effEnd(r)>=today).length;
+  if(!rows.length){
+    const hint = ROWS.length ? `<br><small>มีข้อมูลทั้งหมด ${ROWS.length} รายการ แต่ไม่อยู่ในช่วงนี้ — ลองเลือก Period อื่น หรือ "ทั้งปี"</small>` : `<br><small>ยังไม่มีข้อมูลในระบบ</small>`;
+    $("tbody").innerHTML=`<tr><td colspan="9" class="empty">ไม่มีข้อมูลในช่วงนี้${hint}</td></tr>`; return;
+  }
   $("tbody").innerHTML = rows.map((r,i)=>{
-    const st = r.endDate<today ? `<span class="pill done">ออกแล้ว</span>` : r.startDate>today ? `<span class="pill soon">ยังไม่เข้า</span>` : `<span class="pill">อยู่ในพื้นที่</span>`;
+    const st = r.startDate>today ? `<span class="pill soon">ยังไม่เข้า</span>` : (r.endDate && r.endDate<today) ? `<span class="pill done">ออกแล้ว</span>` : `<span class="pill">อยู่ในพื้นที่</span>`;
+    const endCell = r.endDate ? fmtDate(r.endDate) : `<span class="pill now">ปัจจุบัน</span><br><button class="btn-sm" data-end="${esc(r.id)}">บันทึกวันออก</button>`;
     return `<tr><td>${i+1}</td><td><b>${esc(r.company)}</b></td><td>${esc(r.contactName)}</td>
       <td><a href="tel:${esc(r.phone)}">${esc(r.phone)}</a></td><td>${r.email?`<a href="mailto:${esc(r.email)}">${esc(r.email)}</a>`:"-"}</td>
-      <td>${fmtDate(r.startDate)}</td><td>${fmtDate(r.endDate)}</td><td>${st}</td><td>${esc(r.note||"")}</td></tr>`;
+      <td>${fmtDate(r.startDate)}</td><td>${endCell}</td><td>${st}</td><td>${esc(r.note||"")}</td></tr>`;
   }).join("");
 }
 
@@ -419,7 +464,7 @@ function exportCSV(){
   if(!rows.length){ toast("ไม่มีข้อมูลให้ดาวน์โหลด", true); return; }
   const head=["ลำดับ","บริษัทผู้รับเหมา","ผู้ประสานงาน","เบอร์โทร","อีเมล","วันที่เข้า","วันที่ออก","Period","หมายเหตุ"];
   const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
-  const lines=[head.map(q).join(",")].concat(rows.map((r,i)=>[i+1,r.company,r.contactName,"\t"+r.phone,r.email,r.startDate,r.endDate,r.period,r.note].map(q).join(",")));
+  const lines=[head.map(q).join(",")].concat(rows.map((r,i)=>[i+1,r.company,r.contactName,"\t"+r.phone,r.email,r.startDate,r.endDate||"ปัจจุบัน",r.period,r.note].map(q).join(",")));
   const blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
   a.download=`ผู้รับเหมา_${rng.label.replace(/\s+/g,"-")}.csv`; a.click(); URL.revokeObjectURL(a.href);
@@ -430,6 +475,27 @@ $("fPeriod").addEventListener("change", renderSummary);
 $("fSearch").addEventListener("input", renderSummary);
 $("refreshBtn").addEventListener("click", loadData);
 $("exportBtn").addEventListener("click", exportCSV);
+
+/* ---------------- บันทึกวันออก ---------------- */
+let endTarget=null;
+$("tbody").addEventListener("click", ev=>{
+  const b=ev.target.closest("[data-end]"); if(!b) return;
+  endTarget=ROWS.find(r=>r.id===b.dataset.end); if(!endTarget) return;
+  $("endModalText").textContent=`${endTarget.company} (เข้า ${fmtDate(endTarget.startDate)})`;
+  $("endModalDate").min=endTarget.startDate; $("endModalDate").value=todayISO()<endTarget.startDate? endTarget.startDate : todayISO();
+  $("endModal").classList.add("show");
+});
+$("endModalCancel").addEventListener("click", ()=>$("endModal").classList.remove("show"));
+$("endModalSave").addEventListener("click", async ()=>{
+  const d=$("endModalDate").value;
+  if(!d || d<endTarget.startDate){ toast("วันที่ออกต้องไม่ก่อนวันที่เข้า", true); return; }
+  const btn=$("endModalSave"); btn.disabled=true;
+  try{
+    await saveRow({action:"setEnd", id:endTarget.id, endDate:d, period:periodText(endTarget.startDate,d)});
+    $("endModal").classList.remove("show"); toast("✅ บันทึกวันออกเรียบร้อย"); await loadData();
+  }catch(e){ toast("❌ "+e.message, true); }
+  finally{ btn.disabled=false; }
+});
 
 /* ---------------- Init ---------------- */
 $("appTitle").textContent=APP_TITLE; $("deptName").textContent=DEPT_NAME;
