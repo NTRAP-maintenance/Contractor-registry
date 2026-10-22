@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ทะเบียนผู้รับเหมา | Maintenance and Reliability</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* =========================================================
+   ตั้งค่า: วาง URL ของ Google Apps Script Web App ตรงนี้
+   (ถ้าเว้นว่างไว้ เว็บจะทำงานใน "โหมดทดลอง" เก็บข้อมูลในเครื่องเท่านั้น)
+   ========================================================= */
+</style>
+<script>
+  const SCRIPT_URL = "";
+  const DEPT_NAME  = "แผนก Maintenance and Reliability";
+  const APP_TITLE  = "ทะเบียนผู้รับเหมา";
+</script>
+<style>
+:root{
+  --navy:#0f2a4a; --navy-2:#173b66; --accent:#f2a900; --green:#1f8a5b; --red:#c0392b;
+  --bg:#f3f5f9; --card:#ffffff; --text:#1d2533; --muted:#667085; --line:#e3e7ee;
+  --radius:14px; --shadow:0 6px 20px rgba(15,42,74,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:"IBM Plex Sans Thai",system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.55}
+a{color:inherit}
+button,input,select,textarea{font:inherit}
+
+/* Header */
+header{background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff}
+.bar{max-width:1100px;margin:0 auto;padding:14px 16px;display:flex;align-items:center;gap:12px}
+.logo{width:44px;height:44px;border-radius:10px;background:#fff;display:grid;place-items:center;overflow:hidden;flex:none}
+.logo img{width:100%;height:100%;object-fit:contain}
+.brand{flex:1;min-width:0}
+.brand b{display:block;font-size:1.05rem}
+.brand small{opacity:.8}
+nav{display:flex;gap:6px}
+nav a{text-decoration:none;padding:8px 12px;border-radius:10px;font-size:.92rem;opacity:.85}
+nav a.active,nav a:hover{background:rgba(255,255,255,.14);opacity:1}
+
+main{max-width:1100px;margin:0 auto;padding:22px 16px 60px}
+.view{display:none}.view.show{display:block}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:22px}
+h1{font-size:1.6rem;margin:0 0 6px}
+h2{font-size:1.25rem;margin:0 0 14px}
+.muted{color:var(--muted)}
+
+.demo{background:#fff6dc;border:1px solid #f2d27a;color:#7a5a00;padding:10px 14px;border-radius:10px;margin-bottom:16px;font-size:.92rem}
+
+/* Home */
+.hero{display:grid;gap:18px}
+.hero .card{padding:30px}
+.hero-tag{display:inline-block;background:#fff3cf;color:#8a6100;font-weight:600;font-size:.82rem;padding:4px 10px;border-radius:999px;margin-bottom:10px}
+.actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:22px}
+.action{display:flex;gap:14px;align-items:center;text-decoration:none;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:18px;transition:.15s}
+.action:hover{border-color:var(--navy-2);transform:translateY(-2px);box-shadow:var(--shadow)}
+.action .ic{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-size:1.4rem;flex:none}
+.action b{display:block}
+.info{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.info div{background:var(--card);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);font-size:.92rem}
+.info b{display:block;color:var(--navy)}
+
+/* Form */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}
+.full{grid-column:1/-1}
+label{display:block;font-weight:500;font-size:.92rem;margin-bottom:5px}
+label .req{color:var(--red)}
+input,select,textarea{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--text)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--navy-2);box-shadow:0 0 0 3px rgba(23,59,102,.12)}
+textarea{min-height:70px;resize:vertical}
+.section-title{grid-column:1/-1;font-weight:600;color:var(--navy);border-bottom:1px solid var(--line);padding-bottom:6px;margin-top:6px}
+.period-box{grid-column:1/-1;background:#eef4fb;border:1px dashed #9db6d6;border-radius:10px;padding:12px 14px;color:var(--navy)}
+.period-box b{font-size:1.05rem}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.btn{border:0;border-radius:10px;padding:11px 18px;font-weight:600;cursor:pointer}
+.btn-primary{background:var(--navy);color:#fff}
+.btn-primary:hover{background:var(--navy-2)}
+.btn-ghost{background:#fff;border:1.5px solid var(--line);color:var(--text)}
+.btn-accent{background:var(--accent);color:#2b1f00}
+.btn:disabled{opacity:.6;cursor:wait}
+
+/* Summary */
+.filters{display:grid;grid-template-columns:140px 200px 1fr auto auto;gap:10px;align-items:end;margin-bottom:16px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.stat{background:var(--card);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);border-left:4px solid var(--navy)}
+.stat:nth-child(2){border-color:var(--accent)}.stat:nth-child(3){border-color:var(--green)}
+.stat .n{font-size:1.7rem;font-weight:700;line-height:1.2}
+.stat .l{font-size:.85rem;color:var(--muted)}
+.range{font-size:.9rem;color:var(--muted);margin:-6px 0 12px}
+.table-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--line);background:#fff}
+table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:860px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:#f7f9fc;color:var(--navy);font-weight:600;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;font-size:.78rem;padding:2px 8px;border-radius:999px;background:#e7f5ee;color:var(--green);font-weight:600}
+.pill.done{background:#eef0f4;color:var(--muted)}
+.pill.soon{background:#fff3cf;color:#8a6100}
+.empty{text-align:center;padding:30px;color:var(--muted)}
+
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(120px);background:var(--navy);color:#fff;padding:12px 18px;border-radius:12px;box-shadow:var(--shadow);transition:.25s;z-index:9;max-width:calc(100% - 32px)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.err{background:var(--red)}
+footer{text-align:center;color:var(--muted);font-size:.82rem;padding:20px}
+
+@media (max-width:760px){
+  .bar{flex-wrap:wrap}
+  nav{width:100%;overflow-x:auto}
+  .grid{grid-template-columns:1fr}
+  .filters{grid-template-columns:1fr 1fr}
+  .filters .search{grid-column:1/-1}
+  .stats{grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .stat{padding:10px}.stat .n{font-size:1.3rem}
+  h1{font-size:1.35rem}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="logo">
+      <img src="logo.png" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'🦺',style:'font-size:1.5rem'}))">
+    </div>
+    <div class="brand"><b id="appTitle"></b><small id="deptName"></small></div>
+    <nav>
+      <a href="#home" data-nav="home">หน้าแรก</a>
+      <a href="#form" data-nav="form">ลงข้อมูล</a>
+      <a href="#summary" data-nav="summary">ดูสรุป</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div id="demoBanner" class="demo" hidden>⚠️ <b>โหมดทดลอง</b> — ยังไม่ได้เชื่อมต่อ Google Sheet ข้อมูลจะถูกเก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น</div>
+
+  <!-- ============ HOME ============ -->
+  <section id="view-home" class="view">
+    <div class="hero">
+      <div class="card">
+        <span class="hero-tag">Contractor Registry 2026 – 2027</span>
+        <h1>ระบบลงทะเบียนผู้รับเหมารายเดือน</h1>
+        <p class="muted" style="margin:0">สำหรับทีมวิศวกรบันทึกชื่อบริษัทผู้รับเหมาและข้อมูลผู้ประสานงาน ที่เข้ามาปฏิบัติงานในแต่ละ Period</p>
+        <div class="actions">
+          <a class="action" href="#form">
+            <span class="ic" style="background:#e8eef7">📝</span>
+            <span><b>ลงข้อมูลผู้รับเหมา</b><span class="muted">บันทึกบริษัทและผู้ประสานงาน</span></span>
+          </a>
+          <a class="action" href="#summary">
+            <span class="ic" style="background:#fff3cf">📊</span>
+            <span><b>ดูสรุปรายเดือน</b><span class="muted">ดูตามปีและ Period / ดาวน์โหลด Excel</span></span>
+          </a>
+        </div>
+      </div>
+      <div class="info">
+        <div><b>รอบ Period</b>เริ่มวันที่ 16 ถึงวันที่ 15 ของเดือนถัดไป</div>
+        <div><b>การตั้งชื่อ Period</b>ตามเดือนที่ตัดรอบ เช่น 16 ก.ย. – 15 ต.ค. = Period ตุลาคม</div>
+        <div><b>Period ปัจจุบัน</b><span id="currentPeriod"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FORM ============ -->
+  <section id="view-form" class="view">
+    <form id="entryForm" class="card" novalidate>
+      <h2>📝 ลงข้อมูลผู้รับเหมา</h2>
+      <div class="grid">
+        <div class="section-title">ข้อมูลบริษัท</div>
+        <div class="full">
+          <label for="company">ชื่อบริษัทผู้รับเหมา <span class="req">*</span></label>
+          <input id="company" name="company" list="companyList" autocomplete="off" required maxlength="150" placeholder="พิมพ์ชื่อบริษัท หรือเลือกจากรายชื่อเดิม">
+          <datalist id="companyList"></datalist>
+        </div>
+
+        <div class="section-title">ผู้ประสานงาน</div>
+        <div class="full">
+          <label for="contactName">ชื่อ-นามสกุล <span class="req">*</span></label>
+          <input id="contactName" name="contactName" required maxlength="120" placeholder="เช่น สมชาย ใจดี">
+        </div>
+        <div>
+          <label for="phone">เบอร์โทรศัพท์ <span class="req">*</span></label>
+          <input id="phone" name="phone" type="tel" inputmode="tel" required maxlength="30" placeholder="08x-xxx-xxxx">
+        </div>
+        <div>
+          <label for="email">อีเมล</label>
+          <input id="email" name="email" type="email" maxlength="120" placeholder="name@company.com">
+        </div>
+
+        <div class="section-title">ช่วงเวลาปฏิบัติงาน</div>
+        <div>
+          <label for="startDate">วันที่เข้า <span class="req">*</span></label>
+          <input id="startDate" name="startDate" type="date" required min="2025-12-16" max="2027-12-31">
+        </div>
+        <div>
+          <label for="endDate">วันที่ออก <span class="req">*</span></label>
+          <input id="endDate" name="endDate" type="date" required min="2025-12-16" max="2027-12-31">
+        </div>
+        <div class="period-box" id="periodBox">เลือกวันที่เข้า-ออก แล้วระบบจะคำนวณ Period ให้อัตโนมัติ</div>
+
+        <div class="full">
+          <label for="note">หมายเหตุ</label>
+          <textarea id="note" name="note" maxlength="300" placeholder="(ถ้ามี)"></textarea>
+        </div>
+      </div>
+      <div class="btns">
+        <button type="submit" class="btn btn-primary" id="submitBtn">💾 บันทึกข้อมูล</button>
+        <button type="reset" class="btn btn-ghost">ล้างฟอร์ม</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ============ SUMMARY ============ -->
+  <section id="view-summary" class="view">
+    <div class="card">
+      <h2>📊 สรุปผู้รับเหมา</h2>
+      <div class="filters">
+        <div><label for="fYear">ปี</label><select id="fYear"></select></div>
+        <div><label for="fPeriod">Period</label><select id="fPeriod"></select></div>
+        <div class="search"><label for="fSearch">ค้นหา</label><input id="fSearch" placeholder="ชื่อบริษัท / ผู้ประสานงาน / เบอร์โทร"></div>
+        <button class="btn btn-ghost" id="refreshBtn" type="button">🔄 รีเฟรช</button>
+        <button class="btn btn-accent" id="exportBtn" type="button">⬇️ Excel</button>
+      </div>
+      <div class="range" id="rangeText"></div>
+      <div class="stats">
+        <div class="stat"><div class="n" id="sCompanies">0</div><div class="l">บริษัท</div></div>
+        <div class="stat"><div class="n" id="sRows">0</div><div class="l">รายการทั้งหมด</div></div>
+        <div class="stat"><div class="n" id="sActive">0</div><div class="l">อยู่ในพื้นที่วันนี้</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>#</th><th>บริษัทผู้รับเหมา</th><th>ผู้ประสานงาน</th><th>เบอร์โทร</th><th>อีเมล</th>
+            <th>วันที่เข้า</th><th>วันที่ออก</th><th>สถานะ</th><th>หมายเหตุ</th>
+          </tr></thead>
+          <tbody id="tbody"><tr><td colspan="9" class="empty">กำลังโหลด...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="footer"></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------------- Helpers ---------------- */
+const TH_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+const TH_SHORT  = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,"0");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function todayISO(){ const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function fmtDate(iso){ if(!iso) return "-"; const [y,m,d]=iso.split("-").map(Number); return `${d} ${TH_SHORT[m-1]} ${String(y).slice(-2)}`; }
+
+/** Period ของวันที่หนึ่ง: วันที่ 16 ขึ้นไป → เป็น Period ของเดือนถัดไป */
+function periodOf(iso){
+  const [y,m,d] = iso.split("-").map(Number);
+  let py=y, pm=m;
+  if(d>=16){ pm=m+1; if(pm>12){ pm=1; py++; } }
+  return {y:py, m:pm};
+}
+function periodLabel(p){ return `Period ${TH_MONTHS[p.m-1]} ${p.y}`; }
+/** ช่วงวันที่ของ Period (16 ของเดือนก่อน – 15 ของเดือนนั้น) */
+function periodRange(y,m){
+  let sy=y, sm=m-1; if(sm<1){ sm=12; sy--; }
+  return {start:`${sy}-${pad(sm)}-16`, end:`${y}-${pad(m)}-15`};
+}
+function periodsBetween(a,b){ // รายการ Period ที่ช่วงวันที่ครอบคลุม
+  const out=[]; let p=periodOf(a); const last=periodOf(b);
+  while(p.y<last.y || (p.y===last.y && p.m<=last.m)){ out.push({...p}); p.m++; if(p.m>12){p.m=1;p.y++;} if(out.length>36) break; }
+  return out;
+}
+
+function toast(msg, err=false){
+  const t=$("toast"); t.textContent=msg; t.className="toast show"+(err?" err":"");
+  clearTimeout(t._h); t._h=setTimeout(()=>t.className="toast"+(err?" err":""),3200);
+}
+
+/* ---------------- Data layer ---------------- */
+const DEMO = !SCRIPT_URL;
+const DEMO_KEY = "ntrap_contractors_demo";
+let memoryStore = [];
+let ROWS = [];
+
+function demoLoad(){ try{ return JSON.parse(localStorage.getItem(DEMO_KEY)||"[]"); }catch(e){ return memoryStore; } }
+function demoSave(rows){ memoryStore=rows; try{ localStorage.setItem(DEMO_KEY, JSON.stringify(rows)); }catch(e){} }
+
+async function fetchRows(){
+  if(DEMO) return demoLoad();
+  const res = await fetch(SCRIPT_URL + "?action=list&t=" + Date.now());
+  const data = await res.json();
+  if(!data.ok) throw new Error(data.error||"โหลดข้อมูลไม่สำเร็จ");
+  return data.rows;
+}
+async function saveRow(row){
+  if(DEMO){
+    const rows=demoLoad(); row.id=Math.random().toString(36).slice(2,10); row.createdAt=new Date().toISOString();
+    rows.push(row); demoSave(rows); return {ok:true};
+  }
+  const res = await fetch(SCRIPT_URL, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:JSON.stringify(row)});
+  const data = await res.json();
+  if(!data.ok) throw new Error(data.error||"บันทึกไม่สำเร็จ");
+  return data;
+}
+
+async function loadData(){
+  $("tbody").innerHTML = `<tr><td colspan="9" class="empty">กำลังโหลด...</td></tr>`;
+  try{
+    ROWS = await fetchRows();
+    fillCompanyList(); buildYearOptions(); renderSummary();
+  }catch(e){
+    $("tbody").innerHTML = `<tr><td colspan="9" class="empty">โหลดข้อมูลไม่สำเร็จ: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+function fillCompanyList(){
+  const names=[...new Set(ROWS.map(r=>String(r.company).trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"th"));
+  $("companyList").innerHTML = names.map(n=>`<option value="${esc(n)}">`).join("");
+}
+
+/* ---------------- Router ---------------- */
+function route(){
+  const v = (location.hash||"#home").slice(1);
+  const name = ["home","form","summary"].includes(v)? v : "home";
+  document.querySelectorAll(".view").forEach(s=>s.classList.toggle("show", s.id==="view-"+name));
+  document.querySelectorAll("nav a").forEach(a=>a.classList.toggle("active", a.dataset.nav===name));
+  window.scrollTo(0,0);
+  if(name==="summary") renderSummary();
+}
+
+/* ---------------- Form ---------------- */
+function updatePeriodBox(){
+  const s=$("startDate").value, e=$("endDate").value, box=$("periodBox");
+  if(!s){ box.innerHTML="เลือกวันที่เข้า-ออก แล้วระบบจะคำนวณ Period ให้อัตโนมัติ"; return; }
+  if(e && e<s){ box.innerHTML="⚠️ วันที่ออกต้องไม่ก่อนวันที่เข้า"; return; }
+  const ps = periodsBetween(s, e||s);
+  const txt = ps.length===1 ? periodLabel(ps[0]) : `${periodLabel(ps[0])} – ${periodLabel(ps[ps.length-1]).replace("Period ","")} (${ps.length} Period)`;
+  box.innerHTML = `📅 Period ที่บันทึก: <b>${esc(txt)}</b>`;
+}
+
+$("startDate").addEventListener("change", ()=>{ if($("startDate").value) $("endDate").min=$("startDate").value; updatePeriodBox(); });
+$("endDate").addEventListener("change", updatePeriodBox);
+$("entryForm").addEventListener("reset", ()=>setTimeout(updatePeriodBox,0));
+
+$("entryForm").addEventListener("submit", async ev=>{
+  ev.preventDefault();
+  const f=ev.target;
+  const row = {
+    company: f.company.value.trim(), contactName: f.contactName.value.trim(),
+    phone: f.phone.value.trim(), email: f.email.value.trim(),
+    startDate: f.startDate.value, endDate: f.endDate.value, note: f.note.value.trim()
+  };
+  if(!row.company || !row.contactName || !row.phone || !row.startDate || !row.endDate){ toast("กรุณากรอกช่องที่มี * ให้ครบ", true); return; }
+  if(row.email && !f.email.checkValidity()){ toast("รูปแบบอีเมลไม่ถูกต้อง", true); return; }
+  if(row.endDate < row.startDate){ toast("วันที่ออกต้องไม่ก่อนวันที่เข้า", true); return; }
+  const ps = periodsBetween(row.startDate, row.endDate);
+  row.period = ps.map(periodLabel).join(", ");
+
+  const btn=$("submitBtn"); btn.disabled=true; btn.textContent="กำลังบันทึก...";
+  try{
+    await saveRow(row);
+    toast("✅ บันทึกข้อมูลเรียบร้อย");
+    f.reset(); await loadData();
+  }catch(e){ toast("❌ "+e.message, true); }
+  finally{ btn.disabled=false; btn.textContent="💾 บันทึกข้อมูล"; }
+});
+
+/* ---------------- Summary ---------------- */
+function buildYearOptions(){
+  const cur = periodOf(todayISO());
+  const years = new Set([2026,2027]);
+  ROWS.forEach(r=>{ if(r.startDate) periodsBetween(r.startDate, r.endDate||r.startDate).forEach(p=>years.add(p.y)); });
+  const sel=$("fYear"), keep=sel.value;
+  sel.innerHTML=[...years].sort().map(y=>`<option value="${y}">${y}</option>`).join("");
+  sel.value = keep || (years.has(cur.y)? cur.y : 2026);
+  buildPeriodOptions();
+}
+function buildPeriodOptions(){
+  const sel=$("fPeriod"), keep=sel.value, cur=periodOf(todayISO());
+  sel.innerHTML = `<option value="all">ทั้งปี</option>` + TH_MONTHS.map((n,i)=>`<option value="${i+1}">Period ${n}</option>`).join("");
+  if(keep) sel.value=keep; else sel.value = (+$("fYear").value===cur.y)? cur.m : "all";
+}
+
+function currentFilterRange(){
+  const y=+$("fYear").value, p=$("fPeriod").value;
+  if(p==="all") return {start:periodRange(y,1).start, end:periodRange(y,12).end, label:`ทั้งปี ${y}`};
+  const r=periodRange(y,+p); return {...r, label:periodLabel({y,m:+p})};
+}
+
+function filteredRows(){
+  const {start,end}=currentFilterRange();
+  const q=$("fSearch").value.trim().toLowerCase();
+  return ROWS
+    .filter(r=> r.startDate <= end && (r.endDate||r.startDate) >= start)
+    .filter(r=> !q || [r.company,r.contactName,r.phone,r.email].join(" ").toLowerCase().includes(q))
+    .sort((a,b)=> a.startDate.localeCompare(b.startDate) || String(a.company).localeCompare(String(b.company),"th"));
+}
+
+function renderSummary(){
+  if(!$("fYear").value) return;
+  const rng=currentFilterRange(), rows=filteredRows(), today=todayISO();
+  $("rangeText").textContent = `${rng.label} : ${fmtDate(rng.start)} – ${fmtDate(rng.end)}`;
+  $("sCompanies").textContent = new Set(rows.map(r=>String(r.company).trim())).size;
+  $("sRows").textContent = rows.length;
+  $("sActive").textContent = rows.filter(r=>r.startDate<=today && r.endDate>=today).length;
+  if(!rows.length){ $("tbody").innerHTML=`<tr><td colspan="9" class="empty">ไม่มีข้อมูลในช่วงนี้</td></tr>`; return; }
+  $("tbody").innerHTML = rows.map((r,i)=>{
+    const st = r.endDate<today ? `<span class="pill done">ออกแล้ว</span>` : r.startDate>today ? `<span class="pill soon">ยังไม่เข้า</span>` : `<span class="pill">อยู่ในพื้นที่</span>`;
+    return `<tr><td>${i+1}</td><td><b>${esc(r.company)}</b></td><td>${esc(r.contactName)}</td>
+      <td><a href="tel:${esc(r.phone)}">${esc(r.phone)}</a></td><td>${r.email?`<a href="mailto:${esc(r.email)}">${esc(r.email)}</a>`:"-"}</td>
+      <td>${fmtDate(r.startDate)}</td><td>${fmtDate(r.endDate)}</td><td>${st}</td><td>${esc(r.note||"")}</td></tr>`;
+  }).join("");
+}
+
+function exportCSV(){
+  const rows=filteredRows(), rng=currentFilterRange();
+  if(!rows.length){ toast("ไม่มีข้อมูลให้ดาวน์โหลด", true); return; }
+  const head=["ลำดับ","บริษัทผู้รับเหมา","ผู้ประสานงาน","เบอร์โทร","อีเมล","วันที่เข้า","วันที่ออก","Period","หมายเหตุ"];
+  const q=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+  const lines=[head.map(q).join(",")].concat(rows.map((r,i)=>[i+1,r.company,r.contactName,"\t"+r.phone,r.email,r.startDate,r.endDate,r.period,r.note].map(q).join(",")));
+  const blob=new Blob(["\uFEFF"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=`ผู้รับเหมา_${rng.label.replace(/\s+/g,"-")}.csv`; a.click(); URL.revokeObjectURL(a.href);
+}
+
+["fYear"].forEach(id=>$(id).addEventListener("change",()=>{ $("fPeriod").value=""; buildPeriodOptions(); renderSummary(); }));
+$("fPeriod").addEventListener("change", renderSummary);
+$("fSearch").addEventListener("input", renderSummary);
+$("refreshBtn").addEventListener("click", loadData);
+$("exportBtn").addEventListener("click", exportCSV);
+
+/* ---------------- Init ---------------- */
+$("appTitle").textContent=APP_TITLE; $("deptName").textContent=DEPT_NAME;
+$("footer").textContent=`© ${new Date().getFullYear()} ${DEPT_NAME}`;
+$("demoBanner").hidden=!DEMO;
+$("currentPeriod").textContent=(()=>{ const p=periodOf(todayISO()), r=periodRange(p.y,p.m); return `${periodLabel(p)} (${fmtDate(r.start)} – ${fmtDate(r.end)})`; })();
+window.addEventListener("hashchange", route);
+route(); loadData();
+</script>
+</body>
+</html>
